@@ -1,8 +1,16 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#define __USE_POSIX199309 1
+#include <signal.h>
 #include <time.h>
+#include <errno.h>
+#include <memory.h>
+#include <unistd.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include "rfc6238.h"
+
 
 #define T0 0
 #define DIGITS 6
@@ -163,6 +171,103 @@ char b32_decode_char(char c)
 
 /*******************************Code Taken from elsewhere********************************/
 
+void
+print_current_system_time() {
+    time_t t;
+    time(&t); /* Get the current time of the system */
+    printf("%s ", ctime(&t));
+}
+
+void
+timer_callback(union sigval arg) {
+
+    char* decodeKey = (char*)arg.sival_ptr;
+
+    size_t sz_dKey = strlen(decodeKey);
+
+    time_t t = floor((time(NULL) - T0) / VALIDITY);
+
+    uint32_t result = TOTP((uint8_t*)decodeKey, sz_dKey, (uint64_t)t, DIGITS);
+
+    printf("The resulting OTP value is : %06u\n", result);
+
+}
+
+void
+timer_demo(char* key) {
+
+    int ret;
+    timer_t timer;
+    struct sigevent evp;
+
+    memset(&timer, 0, sizeof(timer));
+
+    /* evp variable is used to setup timer properties*/
+    memset(&evp, 0, sizeof(struct sigevent));
+
+    /* Fill the user defined data structure.
+     * When timer expires, this will be passed as
+     * argument to the timer callback handler */
+    evp.sigev_value.sival_ptr = (void*)key;
+
+    /* On timer Expiry, We want kernel to launch the
+     * timer handler routine in a separate thread context */
+    evp.sigev_notify = SIGEV_THREAD;
+
+    /* Register the timer hander routine. This routine shall
+     * be invoked when timer expires*/
+    evp.sigev_notify_function = timer_callback;
+
+    /* Create a timer. It is just a timer initialization, Timer
+     * is not fired (Alarmed)  */
+    ret = timer_create(CLOCK_REALTIME,
+        &evp,
+        &timer);
+
+    if (ret < 0) {
+
+        printf("Timer Creation failed, errno = %d\n", errno);
+        exit(0);
+    }
+
+    /* Let us say, I want to start the timer after 5 seconds from now
+     * (now =  say, t = 0) and once the 5 seconds elapsed, i
+     * want the timer to keep firing after every 2 seconds repeatedly.
+     * It simply mean that - if i start the timer as time t = 0, then
+     * timer handler routine (timer_callback) shall be called at t = 5,
+     * t = 7, t = 9 ... so on*/
+
+     /* Let us setup the time intervals */
+
+    struct itimerspec ts;
+
+    /* I want the timer to fire for the first time after 5 seconds
+     * and 0 nano seconds*/
+    ts.it_value.tv_sec = 1;
+    ts.it_value.tv_nsec = 0;
+
+    /* After the timer has fired for the first time, i want the timer
+     * to repeatedly fire after every 2 sec and 0 nano sec */
+    ts.it_interval.tv_sec = VALIDITY;
+    ts.it_interval.tv_nsec = 0;
+
+    /* Now start the timer*/
+    ret = timer_settime(timer,
+        0,
+        &ts,
+        NULL);
+
+    if (ret < 0) {
+
+        printf("Timer Start failed, errno = %d\n", errno);
+        exit(0);
+    }
+    else {
+        print_current_system_time();
+        printf("Timer Alarmed Successfully\n");
+    }
+}
+
 
 int main(int argc, char* argv[]) {
 
@@ -204,14 +309,11 @@ int main(int argc, char* argv[]) {
 
     k = key;
 
-
     b32_decode(&decodeKey, &sz_dKey, k, (size_t)sz_key);
 
-    time_t t = floor((time(NULL) - T0) / VALIDITY);
+    timer_demo(decodeKey);
 
-    result = TOTP((uint8_t*)decodeKey, sz_dKey, (uint64_t)t, DIGITS);
-
-    printf("The resulting OTP value is : %06u\n", result);
+    pause();
 
     return 0;
 }
