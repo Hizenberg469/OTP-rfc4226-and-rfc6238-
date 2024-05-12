@@ -109,17 +109,21 @@ if (NOT EXISTS "${OPENSSL_PATH}/CMakeLists.txt")
 
 endif()
 
-
-set(OPENSSL_USE_STATIC_LIBS TRUE)
-find_package(OpenSSL PATHS ${OPENSSL_PATH})
+find_package(OpenSSL)
 
 if( OPENSSL_FOUND )
-    message(STATUS "OpenSSL found: ${OPENSSL_INCLUDE_DIR}")
-    message(STATUS "OpenSSL found: ${OPENSSL_CRYPTO_LIBRARY}")
-    message(STATUS "OpenSSL found: ${OPENSSL_SSL_LIBRARY}")
-    message(STATUS "OpenSSL found: ${OPENSSL_LIBRARIES}")
-else()
-    message(FATAL_ERROR "OpenSSL not found")
+    set(OPENSSL_USE_STATIC_LIBS TRUE)
+    find_package(OpenSSL PATHS "${OPENSSL_PATH}/build")
+
+    if( OPENSSL_FOUND )
+        message(STATUS "OpenSSL found: ${OPENSSL_INCLUDE_DIR}")
+        message(STATUS "OpenSSL found: ${OPENSSL_CRYPTO_LIBRARY}")
+        message(STATUS "OpenSSL found: ${OPENSSL_SSL_LIBRARY}")
+        message(STATUS "OpenSSL found: ${OPENSSL_LIBRARIES}")
+    else()
+        message(FATAL_ERROR "OpenSSL not found")
+    endif()
+
 endif()
 
 set(OPENSSL_LIB
