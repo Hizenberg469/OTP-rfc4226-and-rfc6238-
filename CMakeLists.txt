@@ -109,10 +109,10 @@ if (NOT EXISTS "${OPENSSL_PATH}/CMakeLists.txt")
 
 endif()
 
+set(OPENSSL_USE_STATIC_LIBS TRUE)
 find_package(OpenSSL)
 
 if( OPENSSL_FOUND )
-    set(OPENSSL_USE_STATIC_LIBS TRUE)
     find_package(OpenSSL PATHS "${OPENSSL_PATH}/build")
 
     if( OPENSSL_FOUND )
